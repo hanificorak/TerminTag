@@ -10,19 +10,19 @@ import { PaperProvider } from "react-native-paper";
 
 import "./src/i18n";
 import DetailAppointmentsScreen from "./screens/app/DetailAppointmentsScreen";
+
+import { navigationRef } from './tools/RootNavigation';  // <-- burayı ekle
+
 const Stack = createNativeStackNavigator();
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(null);
-
 
   useEffect(() => {
     const checkToken = async () => {
       try {
         const token = await AsyncStorage.getItem("token");
         setIsLoggedIn(!!token);
-
-    
       } catch (error) {
         console.error("Token kontrol hatası:", error);
         setIsLoggedIn(false);
@@ -35,7 +35,7 @@ export default function App() {
 
   return (
     <PaperProvider>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}> {/* <-- ref buraya */}
         <Stack.Navigator
           screenOptions={{ headerShown: false }}
           initialRouteName={isLoggedIn ? "AppMenu" : "Login"}

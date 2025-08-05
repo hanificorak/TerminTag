@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,33 +11,68 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import SelectDropdown from "react-native-select-dropdown";
 import Icon from "react-native-vector-icons/Ionicons";
+import Status from "../../tools/status_arr";
 
 import {
   Dialog,
   Portal,
+  Modal,
   Button,
   Provider as PaperProvider,
 } from "react-native-paper";
 import Endpoint from "../../tools/endpoint";
 import api from "../../tools/api";
+import { useFocusEffect } from "@react-navigation/native";
+import { Alert } from "react-native";
 
 export default function AppointmentsScreen({ navigation }) {
   const [filterDlg, setFilterDlg] = useState(false);
   const [date, setDate] = useState("");
   const [appointments, setAppointments] = useState([]);
   const [category_lists, setCategory_lists] = useState([]);
+  const [category, setCategory] = useState("");
+  const [location, setLocation] = useState("");
+  const [visible, setVisible] = React.useState(false);
+  const [activeData, setActiveData] = useState("");
+  const [status, setStatus] = useState(-1);
 
-  useEffect(() => {
-    getData();
-  }, []);
+  const status_list = [
+    { id: -1, title: 'Tümü' },
+
+    { id: 1, title: 'Aktif' },
+    { id: 2, title: 'Gidildi' },
+    { id: 3, title: 'İptal Edildi' },
+    { id: 0, title: 'Pasif' },
+  ]
+
+  useFocusEffect(
+    useCallback(() => {
+      getParam();
+      getData();
+    }, [])
+  );
 
   const getData = async () => {
     try {
-      const { data } = await api.post(Endpoint.AppointmentData);
+ 
+      const { data } = await api.post(Endpoint.AppointmentData, {
+        category: category,
+        date: date,
+        location: location,
+        status:(status == -1 ? null : status)
+      });
+
       if (data.status) {
+        setFilterDlg(false);
         setAppointments(data.obj);
       }
-    } catch (error) {
+    } catch (error) { }
+  };
+
+  const getParam = async () => {
+    const { data } = await api.post(Endpoint.AppointmentParam);
+    if (data && data.status) {
+      setCategory_lists(data.category_lists);
     }
   };
 
@@ -64,23 +99,78 @@ export default function AppointmentsScreen({ navigation }) {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0'); // Aylar 0'dan başlar
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0"); // Aylar 0'dan başlar
     const year = date.getFullYear();
     return `${day}.${month}.${year}`;
   };
+
   const formatTime = (timeString) => {
     const date = new Date(`1970-01-01T${timeString}Z`);
-    const hours = String(date.getUTCHours()).padStart(2, '0');
-    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    const hours = String(date.getUTCHours()).padStart(2, "0");
+    const minutes = String(date.getUTCMinutes()).padStart(2, "0");
     return `${hours}:${minutes}`;
   };
-  
+
+
+  const getStatus = (status) => {
+    console.log(status)
+    switch (status) {
+      case 1:
+        return 'Aktif'
+      case 2:
+        return 'Gidildi'
+      case 3:
+        return 'İptal Edildi'
+      case 0:
+        return 'Pasif'
+      default:
+        break;
+    }
+  };
+
+  const getDetail = () => {
+    setVisible(false);
+    navigation.navigate("DetailAppointmentsScreen", { data: activeData });
+  };
+
+  const deleteRec = () => {
+    Alert.alert(
+      "Emin misiniz?",
+      "Silmek istediğinize emin misiniz?",
+      [
+        {
+          text: "Hayır",
+          onPress: () => console.log("Silme iptal edildi"),
+          style: "cancel"
+        },
+        {
+          text: "Evet",
+          onPress: async () => {
+            const { data } = await api.post(Endpoint.AppointmentDelete, { id: activeData.id });
+            if (data && data.status) {
+              setVisible(false);
+              getData();
+              Alert.alert('Bilgi', 'Kayıt başarıyla silindi.')
+            }
+          }
+        }
+      ],
+      { cancelable: false }
+    );
+  };
+  const showModal = (appointmentData) => {
+    setActiveData(appointmentData);
+    setVisible(true);
+  };
+
+  const hideModal = () => setVisible(false);
 
   const renderAppointmentCard = (appointment) => {
     return (
       <TouchableOpacity
         key={appointment.id}
+        onPress={() => showModal(appointment)}
         style={[
           styles.appointmentCard,
           {
@@ -92,10 +182,12 @@ export default function AppointmentsScreen({ navigation }) {
       >
         <View style={styles.cardContent}>
           <View style={styles.leftContent}>
-            {/* Type Indicator */}
             <View style={styles.typeContainer}>
               <View
-                style={[styles.typeDot, { backgroundColor: appointment.color_code }]}
+                style={[
+                  styles.typeDot,
+                  { backgroundColor: appointment.color_code },
+                ]}
               />
               <Text style={styles.typeLabel}>{appointment.category_name}</Text>
             </View>
@@ -105,11 +197,17 @@ export default function AppointmentsScreen({ navigation }) {
             <View style={styles.infoContainer}>
               <View style={styles.infoRow}>
                 <Ionicons name="calendar-outline" size={16} color="#6B7280" />
-                <Text style={styles.infoText}>{formatDate(appointment.date)}</Text>
+                <Text style={styles.infoText}>
+                  {formatDate(appointment.date)}
+                </Text>
               </View>
               <View style={styles.infoRow}>
                 <Ionicons name="location-outline" size={16} color="#6B7280" />
                 <Text style={styles.infoText}>{appointment.location}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Ionicons name="checkmark-circle-outline" size={16} color="#6B7280" />
+                <Text style={styles.infoText}>{getStatus(appointment.status)}</Text>
               </View>
             </View>
           </View>
@@ -158,22 +256,97 @@ export default function AppointmentsScreen({ navigation }) {
           <Ionicons name="add" size={30} color="#fff" />
         </TouchableOpacity>
       </View>
+      <Portal>
+        <Modal
+          visible={visible}
+          onDismiss={hideModal}
+          contentContainerStyle={styles.containerStyle}
+        >
+          <Text
+            style={{
+              textAlign: "center",
+              fontSize: 20,
+              marginBottom: 30,
+              fontWeight: "bold",
+            }}
+          >
+            Yapmak istediğiniz işlemi seçin
+          </Text>
 
+
+          <View >
+            <Button
+              mode="contained"
+              onPress={() => getDetail()}
+            >
+              Düzenle
+            </Button>
+            <Button
+              mode="contained"
+              onPress={() => deleteRec()}
+              style={{ marginTop: 10 }}
+              buttonColor="#e53935"
+            >
+              Sil
+            </Button>
+          </View>
+        </Modal>
+      </Portal>
       <Portal>
         <Dialog visible={filterDlg} onDismiss={() => setFilterDlg(false)}>
           <Dialog.Title>Filtreleme İşlemleri</Dialog.Title>
           <Dialog.Content>
             <View>
-              <Text>Kategori Seçin</Text>
+              <Text>Durum Seçin</Text>
               <SelectDropdown
                 search={true}
-                data={category_lists}
-                onSelect={(selectedItem, index) => {}}
+                data={status_list}
+                defaultValue={status_list.find(item => item.id === status)} // Seçili item
+
+                onSelect={(selectedItem, index) => {
+                  setStatus(selectedItem.id)
+                }}
                 renderButton={(selectedItem, isOpened) => {
                   return (
                     <View style={styles.dropdownButtonStyle}>
                       <Text style={styles.dropdownButtonTxtStyle}>
-                        {(selectedItem && selectedItem.name) ||
+                        {(selectedItem && selectedItem.title) ||
+                          "Durum seçin"}
+                      </Text>
+                    </View>
+                  );
+                }}
+                renderItem={(item, index, isSelected) => {
+                  return (
+                    <View
+                      style={{
+                        ...styles.dropdownItemStyle,
+                        ...(isSelected && { backgroundColor: "#D2D9DF" }),
+                      }}
+                    >
+                      <Text style={styles.dropdownItemTxtStyle}>
+                        {item.title}
+                      </Text>
+                    </View>
+                  );
+                }}
+                showsVerticalScrollIndicator={false}
+                dropdownStyle={styles.dropdownMenuStyle}
+              />
+            </View>
+            <View>
+              <Text>Kategori Seçin</Text>
+              <SelectDropdown
+                search={true}
+                data={category_lists}
+                onSelect={(selectedItem, index) => {
+                  setCategory(selectedItem.id);
+                }}
+                renderButton={(selectedItem, isOpened) => {
+                  return (
+                    <View style={styles.dropdownButtonStyle}>
+                      <Text style={styles.dropdownButtonTxtStyle}>
+                        {(selectedItem && selectedItem.title) ||
                           "Kategori seçiniz"}
                       </Text>
                       <Icon
@@ -192,7 +365,7 @@ export default function AppointmentsScreen({ navigation }) {
                       }}
                     >
                       <Text style={styles.dropdownItemTxtStyle}>
-                        {item.name}
+                        {item.title}
                       </Text>
                     </View>
                   );
@@ -216,13 +389,15 @@ export default function AppointmentsScreen({ navigation }) {
               <Text>Konum</Text>
               <TextInput
                 style={styles.input_date}
+                value={location}
+                onChangeText={setLocation}
                 placeholder="Konum giriniz."
               />
             </View>
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setFilterDlg(false)}>İptal</Button>
-            <Button onPress={() => setFilterDlg(false)}>Uygula</Button>
+            <Button onPress={() => getData()}>Uygula</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -421,5 +596,24 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: 12,
     marginTop: 6,
+  },
+  containerStyle: { backgroundColor: "white", padding: 20 },
+  containerStyle: {
+    backgroundColor: 'white',
+    padding: 20,
+    marginHorizontal: 20,
+    borderRadius: 10,
+  },
+
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  button: {
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  deleteButton: {
+    backgroundColor: '#e53935',
   },
 });

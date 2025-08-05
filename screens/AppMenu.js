@@ -8,27 +8,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Icon from "react-native-vector-icons/Ionicons";
 import HomeScreen from "./app/HomeScreen";
 import AppointmentsScreen from "./app/AppointmentsScreen";
+import SettingsScreen from "./app/SettingsScreen";
+import ProfileScreen from "./app/ProfileScreen";
 const Tab = createBottomTabNavigator();
 
-// Profil Sayfası
-function ProfileScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Profil</Text>
-      <Text>Profil bilgileriniz burada görünecek</Text>
-    </View>
-  );
-}
 
-// Ayarlar Sayfası
-function SettingsScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Ayarlar</Text>
-      <Text>Uygulama ayarları burada</Text>
-    </View>
-  );
-}
 
 // Bildirimler Sayfası
 function NotificationsScreen() {
@@ -92,10 +76,10 @@ export default function AppMenu({ navigation }) {
         initialParams={{ navigation }}
         options={{ headerShown: false }}
       />
-      <Tab.Screen name="Randevularım" component={AppointmentsScreen}       options={{ headerShown: false }}/>
-      <Tab.Screen name="Sosyal" component={NotificationsScreen} />
-      <Tab.Screen name="Ayarlar" component={SettingsScreen} />
-      <Tab.Screen name="Profilim" component={SettingsScreen} />
+      <Tab.Screen name="Randevularım" component={AppointmentsScreen}  options={{ headerShown: false }}/>
+      {/* <Tab.Screen name="Sosyal" component={NotificationsScreen} /> */}
+      <Tab.Screen name="Ayarlar" component={SettingsScreen}  options={{ headerShown: false }}/>
+      <Tab.Screen name="Profilim" component={ProfileScreen} options={{ headerShown: false }} />
     </Tab.Navigator>
   );
 }
@@ -112,4 +96,4 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 20,
   },
-});
+});   

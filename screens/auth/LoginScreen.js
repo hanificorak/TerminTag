@@ -85,14 +85,19 @@ export default function LoginScreen({ navigation }) {
         email: email,
         password: password,
       });
+
       setIsLoading(false);
-      if (data.user.verify == 0) {
+
+      if (data.user != null && data.user.verify == 0) {
+        await AsyncStorage.setItem("login_email", email);
+
         Toast.show({
           type: ALERT_TYPE.WARNING,
           title: "Uyarı",
           textBody:
             "E-Posta adresiniz doğrulanmamış. Doğrulama sayfasına yönlendiriliyorsunuz.",
         });
+        
         setTimeout(() => {
           navigation.replace("Verify");
         }, 4000);
@@ -123,6 +128,7 @@ export default function LoginScreen({ navigation }) {
         });
       }
     } catch (error) {
+      console.log(error)
     }
   };
 

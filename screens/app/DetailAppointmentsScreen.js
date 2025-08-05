@@ -16,28 +16,46 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import SelectDropdown from "react-native-select-dropdown";
-import { Provider as PaperProvider } from "react-native-paper";
+import {
+  Button,
+  Modal,
+  Provider as PaperProvider,
+  Portal,
+} from "react-native-paper";
 import axios from "axios";
 import Endpoint from "../../tools/endpoint";
 import api from "../../tools/api";
+import { useRoute } from "@react-navigation/native";
 
 export default function DetailAppointmentsScreen({ navigation }) {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
+  const [status, setStatus] = useState(1);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
   const [priority_item, setPriority_item] = useState("");
   const [color_item, setColor_item] = useState("");
 
+  const [priot_name, setPriot_name] = useState("");
+  const [color_name, setColor_name] = useState("");
+  const [other_category, setOther_category] = useState("");
 
-  const [categories,setCategories] = useState([]);
-  const [prioritys,setPrioritys]  =useState([]);
-  const [colors,setColors]  =useState([]);
+  const [categories, setCategories] = useState([]);
+  const [prioritys, setPrioritys] = useState([]);
+  const [colors, setColors] = useState([]);
+  const [editId, setEditId] = useState("");
+  const [visible, setVisible] = React.useState(false);
+
+  const status_list = [
+    { id: 1, title: 'Aktif' },
+    { id: 2, title: 'Gidildi' },
+    { id: 3, title: 'İptal Edildi' },
+    { id: 0, title: 'Pasif' },
+  ]
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -45,8 +63,16 @@ export default function DetailAppointmentsScreen({ navigation }) {
       useNativeDriver: true,
     }).start();
 
+    if (route?.params?.data) {
+      editData();
+    }
+
     getParam();
   }, []);
+
+  const showModal = () => {
+    setVisible(true);
+  };
 
   const formatDate = (text) => {
     // Sadece rakam al
@@ -69,6 +95,36 @@ export default function DetailAppointmentsScreen({ navigation }) {
 
     setDate(formatted);
   };
+  const route = useRoute();
+
+  const editData = () => {
+    const { data } = route.params;
+
+    if (data != null) {
+      setTitle(data.title);
+      setCategory(data.category_id);
+      setPriot_name(data.priot_name);
+      setPriority_item(data.priot);
+      setStatus(data.status);
+      setColor_name(data.color_name);
+      setColor_item(data.color_id);
+      setDate(formatDateSet(data.date));
+      setTime(data.time.slice(0, 5));
+      setLocation(data.location);
+      setEditId(data.id);
+    }
+    console.log(data);
+  };
+
+  const formatDateSet = (isoDate) => {
+    const date = new Date(isoDate);
+
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0"); // Aylar 0-indexlidir
+    const year = date.getFullYear();
+
+    return `${day}.${month}.${year}`;
+  };
 
   const formatTime = (text) => {
     const cleaned = text.replace(/\D/g, "").slice(0, 4);
@@ -87,14 +143,43 @@ export default function DetailAppointmentsScreen({ navigation }) {
   };
 
   const getParam = async () => {
-    const {data} = await api.post(Endpoint.AppointmentParam);
-    if(data && data.status){
+    const { data } = await api.post(Endpoint.AppointmentParam);
+    if (data && data.status) {
       setCategories(data.category_lists);
       setPrioritys(data.priots_lists);
       setColors(data.color_lists);
     }
   };
-  
+
+  const addCategory = async () => {
+    if (other_category == "" || other_category == null) {
+      Alert.alert("Uyarı", "Kategori adı alanı boş geçilemez.");
+      return;
+    }
+
+    const { data } = await api.post(Endpoint.CategoryAdd, {
+      title: other_category,
+    });
+    if (data && data.status) {
+      Alert.alert("Bilgi", "Kategori başarıyla eklendi ve seçildi");
+      setVisible(false);
+      getParam();
+
+      setCategory(data.id);
+    } else {
+      Alert.alert("Uyarı", "İşlem başarısız.");
+    }
+  };
+
+  const closeAddCategory = async () => {
+    setVisible(false);
+  };
+
+  const checkOtherCategory = (id) => {
+    if (id == 2) {
+      showModal();
+    }
+  };
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -126,11 +211,24 @@ export default function DetailAppointmentsScreen({ navigation }) {
       return;
     }
 
-    const {data} = await axios.post(Endpoint.AppointmentSave,{})
-
-    Alert.alert("✅ Başarılı", "Randevu bilgileri kaydedildi!", [
-      { text: "Tamam", onPress: () => navigation.goBack() },
-    ]);
+    const { data } = await api.post(Endpoint.AppointmentSave, {
+      title: title,
+      category: category,
+      priot: priority_item,
+      color: color_item,
+      date: date,
+      time: time,
+      location: location,
+      edit_id: editId == "" ? null : editId,
+      status: status
+    });
+    if (data && data.status) {
+      Alert.alert("✅ Başarılı", "Randevu bilgileri kaydedildi!", [
+        { text: "Tamam", onPress: () => navigation.goBack() },
+      ]);
+    } else {
+      Alert.alert("Uyarı", "İşlem başarısız.");
+    }
   };
 
   const handleGoBack = () => navigation.goBack();
@@ -187,6 +285,53 @@ export default function DetailAppointmentsScreen({ navigation }) {
                 </Animated.View>
 
                 {/* Kategori */}
+
+                <Animated.View
+                  style={[styles.inputContainer, { opacity: fadeAnim }]}
+                >
+                  <View style={styles.labelContainer}>
+                    <Ionicons name="apps-outline" size={20} color="#6366F1" />
+                    <Text style={styles.label}>Durum</Text>
+                  </View>
+                  <View style={styles.inputWrapper}>
+                    <SelectDropdown
+                      search={true}
+                      data={status_list}
+                      defaultValue={status_list.find(item => item.id === status)} // Seçili item
+
+                      onSelect={(selectedItem, index) => {
+                        setStatus(selectedItem.id)
+                      }}
+                      renderButton={(selectedItem, isOpened) => {
+                        return (
+                          <View style={styles.dropdownButtonStyle}>
+                            <Text style={styles.dropdownButtonTxtStyle}>
+                              {(selectedItem && selectedItem.title) ||
+                                "Durum seçin"}
+                            </Text>
+                          </View>
+                        );
+                      }}
+                      renderItem={(item, index, isSelected) => {
+                        return (
+                          <View
+                            style={{
+                              ...styles.dropdownItemStyle,
+                              ...(isSelected && { backgroundColor: "#D2D9DF" }),
+                            }}
+                          >
+                            <Text style={styles.dropdownItemTxtStyle}>
+                              {item.title}
+                            </Text>
+                          </View>
+                        );
+                      }}
+                      showsVerticalScrollIndicator={false}
+                      dropdownStyle={styles.dropdownMenuStyle}
+                    />
+                  </View>
+                </Animated.View>
+
                 <Animated.View
                   style={[styles.inputContainer, { opacity: fadeAnim }]}
                 >
@@ -198,15 +343,18 @@ export default function DetailAppointmentsScreen({ navigation }) {
                     <SelectDropdown
                       search={true}
                       data={categories}
+                      defaultValue={categories.find(item => item.id === category)} // Seçili item
+
                       onSelect={(selectedItem, index) => {
                         setCategory(selectedItem.id);
+                        checkOtherCategory(selectedItem.id);
                       }}
                       renderButton={(selectedItem, isOpened) => {
                         return (
                           <View style={styles.dropdownButtonStyle}>
                             <Text style={styles.dropdownButtonTxtStyle}>
                               {(selectedItem && selectedItem.title) ||
-                                "Kategori seçiniz"}
+                                "Kategori seçin"}
                             </Text>
                           </View>
                         );
@@ -243,13 +391,16 @@ export default function DetailAppointmentsScreen({ navigation }) {
                       data={prioritys}
                       onSelect={(selectedItem, index) => {
                         setPriority_item(selectedItem.id);
+                        setPriot_name(selectedItem.title);
                       }}
                       renderButton={(selectedItem, isOpened) => {
                         return (
                           <View style={styles.dropdownButtonStyle}>
                             <Text style={styles.dropdownButtonTxtStyle}>
                               {(selectedItem && selectedItem.title) ||
-                                "Öncelik seçiniz"}
+                                (priot_name == ""
+                                  ? "Öncelik seçiniz"
+                                  : priot_name)}
                             </Text>
                           </View>
                         );
@@ -287,13 +438,13 @@ export default function DetailAppointmentsScreen({ navigation }) {
                       data={colors}
                       onSelect={(selectedItem, index) => {
                         setColor_item(selectedItem.id);
+                        setColor_name(selectedItem.title);
                       }}
                       renderButton={(selectedItem, isOpened) => {
                         return (
                           <View style={styles.dropdownButtonStyle}>
                             <Text style={styles.dropdownButtonTxtStyle}>
-                              {(selectedItem && selectedItem.title) ||
-                                "Renk seçiniz"}
+                              {color_name == "" ? "Renk seçiniz" : color_name}
                             </Text>
                           </View>
                         );
@@ -422,6 +573,46 @@ export default function DetailAppointmentsScreen({ navigation }) {
           </View>
         </TouchableWithoutFeedback>
       </SafeAreaView>
+      <Portal>
+        <Modal visible={visible} contentContainerStyle={styles.containerStyle}>
+          <View>
+            <Text
+              style={{ fontSize: 20, fontWeight: "bold", marginBottom: 20 }}
+            >
+              Kategori Giriniz
+            </Text>
+          </View>
+          <View>
+            <Text>Diğer Kategoriyi Giriniz</Text>
+            <TextInput
+              placeholder="Kategori adını giriniz..."
+              placeholderTextColor="#9CA3AF"
+              value={other_category}
+              onChangeText={setOther_category}
+              style={[styles.textInput, { marginTop: 10 }]}
+            ></TextInput>
+
+            <View style={{ marginTop: 20 }}>
+              <Button
+                mode="elevated"
+                buttonColor="green"
+                textColor="white"
+                onPress={addCategory}
+              >
+                Kaydet
+              </Button>
+              <Button
+                mode="elevated"
+                style={{ marginTop: 10 }}
+                buttonColor=""
+                onPress={closeAddCategory}
+              >
+                Kapat
+              </Button>
+            </View>
+          </View>
+        </Modal>
+      </Portal>
     </PaperProvider>
   );
 }
@@ -465,6 +656,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 6,
   },
+  containerStyle: { backgroundColor: "white", padding: 20 },
+  containerStyle: {
+    backgroundColor: "white",
+    padding: 20,
+    marginHorizontal: 20,
+    borderRadius: 10,
+  },
+
   modernSaveButton: {
     flexDirection: "row",
     alignItems: "center",
