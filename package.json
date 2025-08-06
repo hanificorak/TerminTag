@@ -28,7 +28,6 @@
     "react-i18next": "^15.6.1",
     "react-native": "0.79.5",
     "react-native-alert-notification": "^0.4.2",
-    "react-native-date-picker": "^5.0.13",
     "react-native-modals": "^0.22.3",
     "react-native-pager-view": "^6.8.1",
     "react-native-paper": "^5.14.5",
@@ -39,7 +38,8 @@
     "react-native-vector-icons": "^10.3.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0"
+    "@babel/core": "^7.20.0",
+    "@react-native-community/cli": "^19.1.1"
   },
   "private": true
 }

@@ -35,7 +35,7 @@ export default function App() {
 
   return (
     <PaperProvider>
-      <NavigationContainer ref={navigationRef}> {/* <-- ref buraya */}
+      <NavigationContainer ref={navigationRef}> 
         <Stack.Navigator
           screenOptions={{ headerShown: false }}
           initialRouteName={isLoggedIn ? "AppMenu" : "Login"}
